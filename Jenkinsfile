@@ -4,6 +4,7 @@ pipeline {
     environment {
         SONAR_TOKEN = credentials('sonarqube-token')
         SONAR_HOST_URL = 'http://172.191.74.240:9000'
+        SONAR_SCANNER_OPTS = '-Dsonar.ws.timeout=300'
     }
     
     stages {
@@ -23,13 +24,16 @@ pipeline {
         
         stage('SonarQube Analysis') {
             steps {
-                sh '''
-                    sonar-scanner \
-                      -Dsonar.projectKey=teclado-project \
-                      -Dsonar.sources=. \
-                      -Dsonar.host.url=${SONAR_HOST_URL} \
-                      -Dsonar.token=${SONAR_TOKEN}
-                '''
+                timeout(time: 10, unit: 'MINUTES') {
+                    sh '''
+                        sonar-scanner \
+                          -Dsonar.projectKey=teclado-project \
+                          -Dsonar.sources=. \
+                          -Dsonar.host.url=${SONAR_HOST_URL} \
+                          -Dsonar.token=${SONAR_TOKEN} \
+                          -Dsonar.ws.timeout=300
+                    '''
+                }
             }
         }
         
