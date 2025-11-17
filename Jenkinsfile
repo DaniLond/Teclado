@@ -1,34 +1,38 @@
 pipeline {
     agent any
     
+    environment {
+        NGINX_SERVER = '52.170.95.59'
+        NGINX_USER = 'adminuser'
+        DEPLOY_PATH = '/var/www/html/teclado'
+    }
+    
     stages {
         stage('Checkout') {
             steps {
                 checkout scm
-                echo ' Código descargado desde GitHub'
             }
         }
         
         stage('Verificar Herramientas') {
             steps {
-                sh 'node --version'
-                sh 'npm --version'
-                echo ' Node.js y npm verificados'
+                sh '''
+                    echo "Verificando Node.js..."
+                    node --version
+                    echo "Verificando npm..."
+                    npm --version
+                '''
             }
         }
         
         stage('Análisis de Código Estático') {
             steps {
-                echo ' Análisis básico de archivos JavaScript...'
                 sh '''
-                    echo "Archivos .js encontrados:"
+                    echo "Analizando archivos JavaScript..."
+                    find . -name "*.js" -not -path "*/node_modules/*" | head -20
+                    echo "Total de archivos .js:"
                     find . -name "*.js" -not -path "*/node_modules/*" | wc -l
-                    
-                    echo ""
-                    echo "Primeros 10 archivos .js:"
-                    find . -name "*.js" -not -path "*/node_modules/*" | head -10
                 '''
-                echo ' Análisis completado'
             }
         }
         
@@ -36,10 +40,10 @@ pipeline {
             steps {
                 script {
                     if (fileExists('package.json')) {
-                        echo ' package.json encontrado'
-                        sh 'cat package.json | head -20'
+                        echo "✅ package.json encontrado"
+                        sh 'cat package.json'
                     } else {
-                        echo '  package.json no encontrado'
+                        echo "ℹ️ No hay package.json (proyecto HTML simple)"
                     }
                 }
             }
@@ -48,26 +52,60 @@ pipeline {
         stage('Reporte de Proyecto') {
             steps {
                 sh '''
-                    echo "================================"
-                    echo "  RESUMEN DEL PROYECTO"
-                    echo "================================"
-                    echo "Directorio: $(pwd)"
-                    echo "Archivos totales: $(find . -type f | wc -l)"
-                    echo "Archivos .js: $(find . -name "*.js" -not -path "*/node_modules/*" | wc -l)"
-                    echo "Archivos .json: $(find . -name "*.json" | wc -l)"
-                    echo "================================"
+                    echo "=== REPORTE DEL PROYECTO ==="
+                    echo "Archivos totales:"
+                    find . -type f | wc -l
+                    echo ""
+                    echo "Archivos JavaScript:"
+                    find . -name "*.js" | wc -l
+                    echo ""
+                    echo "Archivos JSON:"
+                    find . -name "*.json" | wc -l
+                    echo ""
+                    echo "Directorio actual:"
+                    pwd
+                    echo ""
+                    echo "Contenido del directorio:"
+                    ls -lah
                 '''
+            }
+        }
+        
+        stage('Desplegar a Nginx') {
+            steps {
+                script {
+                    echo "🚀 Desplegando aplicación a servidor Nginx..."
+                    
+                    // Crear directorio si no existe
+                    sh """
+                        ssh -o StrictHostKeyChecking=no ${NGINX_USER}@${NGINX_SERVER} '
+                            sudo mkdir -p ${DEPLOY_PATH}
+                            sudo chown ${NGINX_USER}:${NGINX_USER} ${DEPLOY_PATH}
+                        '
+                    """
+                    
+                    // Copiar archivos
+                    sh """
+                        rsync -avz --delete \
+                            --exclude='.git' \
+                            --exclude='Jenkinsfile' \
+                            --exclude='.gitignore' \
+                            ./ ${NGINX_USER}@${NGINX_SERVER}:${DEPLOY_PATH}/
+                    """
+                    
+                    echo "✅ Despliegue completado"
+                    echo "📱 Aplicación disponible en: http://${NGINX_SERVER}/teclado"
+                }
             }
         }
     }
     
     post {
         success {
-            echo ' Pipeline ejecutado EXITOSAMENTE!'
-            echo ' Proyecto Teclado validado correctamente'
+            echo '✅ Pipeline ejecutado exitosamente - Aplicación desplegada'
         }
         failure {
-            echo ' Pipeline falló. Revisar logs arriba.'
+            echo '❌ Pipeline falló - Verificar logs'
         }
     }
 }
