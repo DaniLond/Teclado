@@ -78,7 +78,7 @@ pipeline {
                     
                     // Crear directorio si no existe
                     sh """
-                        ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${NGINX_USER}@${NGINX_SERVER} '
+                        ssh -i /var/jenkins_home/.ssh/id_rsa -o StrictHostKeyChecking=no ${NGINX_USER}@${NGINX_SERVER} '
                             sudo mkdir -p ${DEPLOY_PATH}
                             sudo chown ${NGINX_USER}:${NGINX_USER} ${DEPLOY_PATH}
                         '
@@ -87,7 +87,7 @@ pipeline {
                     // Copiar archivos
                     sh """
                         rsync -avz --delete \
-                            -e "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no" \
+                            -e "ssh -i /var/jenkins_home/.ssh/id_rsa -o StrictHostKeyChecking=no" \
                             --exclude='.git' \
                             --exclude='Jenkinsfile' \
                             --exclude='.gitignore' \
